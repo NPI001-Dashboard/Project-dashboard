@@ -128,8 +128,7 @@ function arc(cx,cy,r,a0,a1){const q=a=>[cx+r*Math.sin(a),cy-r*Math.cos(a)];const
 let cur=[];
 function bars(el,names,key){
   const rows=names.map(n=>{const k=cur.filter(s=>s[key]===n);const c=x=>k.filter(s=>s.status===x).length;return{n,d:c('Completed'),p:c('In Progress'),i:c('Not Initiated'),t:k.length}});
-  const mx=Math.max(1,...rows.map(r=>r.t));
-  $(el).innerHTML=rows.map(r=>`<div class="row"><div class="n">${esc(r.n)}</div><div class="t"><i style="width:${r.d/mx*100}%;background:var(--done)"></i><i style="width:${r.p/mx*100}%;background:var(--prog)"></i><i style="width:${r.i/mx*100}%;background:var(--ni)"></i></div><div class="c">${r.d}/${r.t}</div></div>`).join('');
+  $(el).innerHTML=rows.map(r=>{const t=Math.max(1,r.t);return `<div class="row"><div class="n">${esc(r.n)}</div><div class="t"><i style="width:${r.d/t*100}%;background:var(--done)"></i><i style="width:${r.p/t*100}%;background:var(--prog)"></i><i style="width:${r.i/t*100}%;background:var(--ni)"></i></div><div class="c">${r.d}/${r.t}</div></div>`}).join('');
 }
 function render(){
   const now=new Date(),rd=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0'),fm=$('md').value,fw=$('ws').value,fs=$('st').value,fo=$('ow').value;
