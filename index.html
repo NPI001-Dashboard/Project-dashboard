@@ -1,0 +1,234 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Project Progress Report</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: header band, selection bar, KPI tiles, pie + bar charts, then the filtered task table. */
+:root{
+  --bg:#f1f4f8; --surface:#fff; --fg:#16202e; --muted:#5a6678; --line:#dce2ea; --band:#16324f; --bandfg:#fff;
+  --accent:#2e6fd0; --track:#e3e8ef;
+  --ni:#d64545; --ni-bg:#fbe0dd; --ni-fg:#b3261e; --done:#2e9e5b; --prog:#e8a33d; --done-bg:#dff3e6; --done-fg:#1d6b3f; --prog-bg:#fdecc8; --prog-fg:#8a5200; --due-bg:#dbe7fb; --due-fg:#1f4e9c;
+  --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e141c; --surface:#161d27; --fg:#e8edf4; --muted:#94a1b4; --line:#283140; --band:#0b2038; --bandfg:#fff; --accent:#6ea3ee; --track:#27303d;
+  --ni:#e8665d; --ni-bg:#44201d; --ni-fg:#f28b82; --done:#4cc07f; --prog:#f0b44f; --done-bg:#16382a; --done-fg:#58c585; --prog-bg:#3d2d0f; --prog-fg:#f0b44f; --due-bg:#1e3556; --due-fg:#8db4f0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141c; --surface:#161d27; --fg:#e8edf4; --muted:#94a1b4; --line:#283140; --band:#0b2038; --bandfg:#fff; --accent:#6ea3ee; --track:#27303d;
+  --ni:#e8665d; --ni-bg:#44201d; --ni-fg:#f28b82; --done:#4cc07f; --prog:#f0b44f; --done-bg:#16382a; --done-fg:#58c585; --prog-bg:#3d2d0f; --prog-fg:#f0b44f; --due-bg:#1e3556; --due-fg:#8db4f0; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45;margin:0}
+.side{padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+.band{background:var(--band);color:var(--bandfg);padding-block:22px 18px}
+.band h1{font-size:24px;margin:0 0 2px;font-weight:600;text-wrap:balance}
+.band p{margin:0;opacity:.78;font-size:13px}
+.wrap{max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+main.wrap{padding-block:20px 40px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
+h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600}
+.sel{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;align-items:end}
+.sel label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500}
+select,input[type=date]{font:inherit;font-size:14px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:8px 10px;min-width:0;width:100%}
+select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.reset{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:5px;padding:8px 12px;cursor:pointer}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 16px}
+.tile .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.tile .s{color:var(--muted);font-size:12px;margin-top:2px}
+.tile .v{font-family:var(--mono);font-size:28px;font-weight:500;font-variant-numeric:tabular-nums}
+.charts{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18px;align-items:start}
+@media(max-width:860px){.charts{grid-template-columns:minmax(0,1fr)}}
+.pie{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center}
+.pie svg{width:210px;height:210px;flex:none}
+.leg{display:flex;flex-direction:column;gap:12px}
+.leg div{display:flex;align-items:center;gap:10px}
+.leg i{width:12px;height:12px;border-radius:2px;display:block}
+.leg b{font-family:var(--mono);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+.leg span{color:var(--muted);font-size:13px}
+.row{display:grid;grid-template-columns:minmax(80px,200px) minmax(0,1fr) 54px;gap:10px;align-items:center;padding:3px 0}
+.row .n{font-size:13px;overflow-wrap:anywhere}
+.row .t{height:12px;background:var(--track);border-radius:3px;overflow:hidden;display:flex}
+.row .t i{display:block;height:100%}
+.row .c{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.key{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:8px}
+.key i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+.sub{display:grid;gap:18px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:720px}
+th{text-align:left;font-size:12px;color:var(--muted);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,td.d{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.n{color:var(--muted)}
+.pill{display:inline-block;border-radius:4px;padding:1px 8px;font-size:12px;font-weight:500;white-space:nowrap}
+.pill.done{background:var(--done-bg);color:var(--done-fg)}
+.pill.prog{background:var(--prog-bg);color:var(--prog-fg)}
+.pill.ni{background:var(--ni-bg);color:var(--ni-fg)}
+.pill.due{background:var(--due-bg);color:var(--due-fg)}
+.none{color:var(--muted)}
+.cnt{color:var(--muted);font-size:12px;margin:0 0 8px}
+.tl input[type=date]{width:auto;min-width:150px;padding:5px 8px}
+.tl td{vertical-align:middle}
+.days{font-family:var(--mono);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.days small{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
+.hint{color:var(--muted);font-size:12px;margin:8px 0 0}
+.live{margin:10px 0 0;font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--line,#ccc);display:inline-block;max-width:100%}
+.live a{color:inherit;text-decoration:underline}
+.live.ok{background:var(--done-bg);color:var(--done-fg)}
+.live.warn,.live.wait{background:var(--prog-bg);color:var(--prog-fg)}
+.live.err{background:var(--ni-bg);color:var(--ni-fg)}
+footer{color:var(--muted);font-size:12px}
+</style>
+<div class="band side"><div class="wrap"><div><h1>Project Progress Report</h1><p>Status from the project Gantt charts. Use the selections to pick a model, task, status or owner.</p><div class="live wait" id="live">Connecting to the Google Sheet…</div><button class="reset" id="refresh" type="button" style="margin-top:8px">Refresh now</button></div></div></div>
+<main class="wrap side">
+  <section class="panel"><h2>Select tasks</h2>
+    <div class="sel">
+      <label>Model<select id="md"></select></label>
+      <label>Task<select id="ws"></select></label>
+      <label>Status<select id="st"><option>All</option><option>Completed</option><option>In Progress</option><option>Not Initiated</option></select></label>
+      <label>Owner<select id="ow"></select></label>
+      <button class="reset" id="reset" type="button">Clear selections</button>
+    </div>
+  </section>
+  <section class="tiles" id="tiles"></section>
+    <div class="charts">
+    <section class="panel"><h2>Task status</h2><div class="pie" id="pie"></div></section>
+    <section class="panel"><h2>Subtasks by task</h2><div class="key"><span><i style="background:var(--done)"></i>Completed</span><span><i style="background:var(--prog)"></i>In progress</span><span><i style="background:var(--ni)"></i>Not initiated</span></div><div id="wsbars"></div></section>
+  </div>
+  <section class="panel"><h2>Subtasks by owner</h2><div class="key"><span><i style="background:var(--done)"></i>Completed</span><span><i style="background:var(--prog)"></i>In progress</span><span><i style="background:var(--ni)"></i>Not initiated</span></div><div id="owbars"></div></section>
+  <section class="panel"><h2>Selected tasks</h2><p class="cnt" id="cnt"></p>
+    <div class="scroll"><table><thead><tr><th>Model</th><th>ID</th><th>Subtask</th><th>Task</th><th>Owner</th><th>Planned finish</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table></div>
+  </section>
+  <footer>Status rules: a subtask is Completed when its planned finish is before today's date. A task has started when any of its subtasks has started or finished. The remaining subtasks of a started task are In Progress. A task with nothing started is Not Initiated. Kick Off Meeting has no subtasks or dates, so it is not counted.</footer>
+</main>
+<script>
+let SUBS=[{"model": "X6843", "id": 3, "name": "Fixture master file received from china", "g": "Fixture Application", "owner": "China", "start": "2026-08-28", "finish": "2026-08-28"}, {"model": "X6843", "id": 4, "name": "Fixture Inventory Cross verification", "g": "Fixture Application", "owner": "NPI", "start": "2026-08-28", "finish": "2026-08-29"}, {"model": "X6843", "id": 5, "name": "Fixture application", "g": "Fixture Application", "owner": "NPI", "start": "2026-08-29", "finish": "2026-08-29"}, {"model": "X6843", "id": 6, "name": "Fixture Arrival", "g": "Fixture Application", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 7, "name": "Fixture Verification and List Finilaization & Circulation", "g": "Fixture Application", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 9, "name": "Machines Information receive from China", "g": "Machine & Equipement Information", "owner": "China", "start": "2026-08-31", "finish": "2026-08-31"}, {"model": "X6843", "id": 10, "name": "Extract the machine data from the master file", "g": "Machine & Equipement Information", "owner": "NPI", "start": "2026-08-31", "finish": "2026-08-31"}, {"model": "X6843", "id": 11, "name": "Machine Information Circulation", "g": "Machine & Equipement Information", "owner": "NPI", "start": "2026-08-31", "finish": "2026-09-07"}, {"model": "X6843", "id": 12, "name": "Machine & Equipement Inventory verification", "g": "Machine & Equipement Information", "owner": "NPI", "start": "2026-09-07", "finish": "2026-09-08"}, {"model": "X6843", "id": 14, "name": "PTA phone information received from Lahore Office on Lark Group", "g": "PTA Approval", "owner": "Head-office", "start": "2026-09-07", "finish": "2026-09-07"}, {"model": "X6843", "id": 15, "name": "PTA phone received in factory", "g": "PTA Approval", "owner": "NPI", "start": "2026-09-07", "finish": "2026-09-07"}, {"model": "X6843", "id": 16, "name": "China team provides PTA document of phone", "g": "PTA Approval", "owner": "China", "start": "2026-09-09", "finish": "2026-09-14"}, {"model": "X6843", "id": 17, "name": "Verification of PTA phones", "g": "PTA Approval", "owner": "NPI", "start": "2026-09-09", "finish": "2026-09-14"}, {"model": "X6843", "id": 18, "name": "PTA phones send to HO team", "g": "PTA Approval", "owner": "NPI", "start": "2026-09-09", "finish": "2026-09-14"}, {"model": "X6843", "id": 19, "name": "TAC approval status", "g": "PTA Approval", "owner": "NPI", "start": "2026-09-09", "finish": "2026-09-19"}, {"model": "X6843", "id": 21, "name": "BOM codes are provided by china team", "g": "BOM", "owner": "China", "start": "2026-09-14", "finish": "2026-09-14"}, {"model": "X6843", "id": 22, "name": "Material list preparation", "g": "BOM", "owner": "NPI", "start": "2026-09-14", "finish": "2026-09-29"}, {"model": "X6843", "id": 23, "name": "BOM list preparation", "g": "BOM", "owner": "NPI", "start": "2026-09-29", "finish": "2026-09-29"}, {"model": "X6843", "id": 24, "name": "Material list uploaded  on Kingdee", "g": "BOM", "owner": "NPI", "start": "2026-09-29", "finish": "2026-09-29"}, {"model": "X6843", "id": 25, "name": "Bom list uploaded on Kingdee", "g": "BOM", "owner": "NPI", "start": "2026-09-29", "finish": "2026-09-29"}, {"model": "X6843", "id": 26, "name": "Email circulated to all departments", "g": "BOM", "owner": "NPI", "start": "2026-09-30", "finish": "2026-09-30"}, {"model": "X6843", "id": 28, "name": "Local Material list is received from China team", "g": "Local Materials", "owner": "China", "start": "2026-09-14", "finish": "2026-09-14"}, {"model": "X6843", "id": 29, "name": "Local Material information is circulated to PMC team", "g": "Local Materials", "owner": "NPI", "start": "2026-09-14", "finish": "2026-09-15"}, {"model": "X6843", "id": 31, "name": "Extract Testing material information from BOM", "g": "Testing Material", "owner": "NPI", "start": "2026-10-15", "finish": "2026-10-15"}, {"model": "X6843", "id": 32, "name": "Circulate Testing Material information", "g": "Testing Material", "owner": "NPI", "start": "2026-10-15", "finish": "2026-10-15"}, {"model": "X6843", "id": 34, "name": "Receive SOP from DCC china server", "g": "SOP/SIP Assembly", "owner": "China", "start": "2026-10-15", "finish": "2026-10-15"}, {"model": "X6843", "id": 35, "name": "Receive SIP from DCC china server", "g": "SOP/SIP Assembly", "owner": "China", "start": null, "finish": null}, {"model": "X6843", "id": 36, "name": "DFM and Control plan circulation", "g": "SOP/SIP Assembly", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 37, "name": "Circulate SOP to relevant teams", "g": "SOP/SIP Assembly", "owner": "NPI", "start": "2026-10-15", "finish": "2026-10-15"}, {"model": "X6843", "id": 38, "name": "Circulate SIP to relevant teams", "g": "SOP/SIP Assembly", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 39, "name": "Clean shed information circulation", "g": "SOP/SIP Assembly", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 40, "name": "SOP & SIP review", "g": "SOP/SIP Assembly", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 41, "name": "Release of SOP", "g": "SOP/SIP Assembly", "owner": "IE", "start": null, "finish": null}, {"model": "X6843", "id": 42, "name": "Release of SIP", "g": "SOP/SIP Assembly", "owner": "Unassigned", "start": null, "finish": null}, {"model": "X6843", "id": 43, "name": "Local formatting & printing", "g": "SOP/SIP Assembly", "owner": "QMS", "start": null, "finish": null}, {"model": "X6843", "id": 45, "name": "Receive SOP Packing from DCC china server", "g": "SOP Packing", "owner": "China", "start": null, "finish": null}, {"model": "X6843", "id": 46, "name": "Circulate SOP packing to relevant teams", "g": "SOP Packing", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 47, "name": "Release of SOP packing", "g": "SOP Packing", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 48, "name": "Local formatting & printing", "g": "SOP Packing", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 50, "name": "Golden Phones are received through China team or courier service", "g": "Golden Phones", "owner": "NPI", "start": "2026-10-14", "finish": "2026-10-14"}, {"model": "X6843", "id": 51, "name": "Golden phones inventory is maintained on server & kingdee system", "g": "Golden Phones", "owner": "NPI", "start": "2026-10-14", "finish": "2026-10-14"}, {"model": "X6843", "id": 52, "name": "Email is circulated regarding golden phones to all relevant departments", "g": "Golden Phones", "owner": "NPI", "start": "2026-10-14", "finish": "2026-10-14"}, {"model": "X6843", "id": 53, "name": "Scripts are downloaded from MOM system", "g": "Golden Phones", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 54, "name": "Golden phones transferred to DWH", "g": "Golden Phones", "owner": "NPI", "start": "2026-10-14", "finish": "2026-10-14"}, {"model": "X6843", "id": 55, "name": "Golden phones testing confirmation", "g": "Golden Phones", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 57, "name": "Market information is maintained on server", "g": "Market Information", "owner": "NPI", "start": "2026-10-15", "finish": "2026-10-15"}, {"model": "X6843", "id": 58, "name": "Market information email is circulated", "g": "Market Information", "owner": "NPI", "start": "2026-10-15", "finish": "2026-10-15"}, {"model": "X6843", "id": 60, "name": "Label standard is downloaded from DCC server", "g": "Label Template", "owner": "China", "start": null, "finish": null}, {"model": "X6843", "id": 61, "name": "Label & phone label information is circulated", "g": "Label Template", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 63, "name": "Aging information is circulated to all departments", "g": "Aging Information", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 64, "name": "Aging information is maintianed on server on excel file", "g": "Aging Information", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 66, "name": "ABOM PBOM & MES route information is maintained on server", "g": "Bind Key & MOM Route", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 67, "name": "Bind Key & MES Route email is circulated to all departments", "g": "Bind Key & MOM Route", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 69, "name": "Fixture arrival information is circulated by fixture team on arrival", "g": "Fixture Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 70, "name": "NPI teams performs the fixture verification", "g": "Fixture Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 71, "name": "Email is circulated to all departments after verification", "g": "Fixture Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 73, "name": "Material is arrived in factory", "g": "Material Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 74, "name": "NPI team verifies the shipment material through BOM", "g": "Material Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 76, "name": "NPI team arranges a resource meeting", "g": "Resource Meeting", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 77, "name": "NPI team shares an email regarding resource meeting", "g": "Resource Meeting", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 79, "name": "Sample production", "g": "Trial Production", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 80, "name": "Trial Production", "g": "Trial Production", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 82, "name": "Closure Meeting", "g": "Mass Production Handover", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 83, "name": "Antenna Optimization", "g": "Mass Production Handover", "owner": "NPI", "start": null, "finish": null}, {"model": "X6843", "id": 84, "name": "Aging Optimization", "g": "Mass Production Handover", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 3, "name": "Fixture master file received from china", "g": "Fixture Application", "owner": "China", "start": "2026-09-11", "finish": "2026-09-11"}, {"model": "KO2", "id": 4, "name": "Fixture Inventory Cross verification", "g": "Fixture Application", "owner": "NPI", "start": "2026-09-11", "finish": "2026-09-14"}, {"model": "KO2", "id": 5, "name": "Fixture application", "g": "Fixture Application", "owner": "NPI", "start": "2026-09-14", "finish": "2026-09-15"}, {"model": "KO2", "id": 6, "name": "Fixture Arrival", "g": "Fixture Application", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 7, "name": "Fixture Verification and List Finilaization & Circulation", "g": "Fixture Application", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 9, "name": "Machines Information receive from China", "g": "Machine & Equipement Information", "owner": "China", "start": "2026-09-24", "finish": "2026-09-24"}, {"model": "KO2", "id": 10, "name": "Extract the machine data from the master file", "g": "Machine & Equipement Information", "owner": "NPI", "start": "2026-09-24", "finish": "2026-09-26"}, {"model": "KO2", "id": 11, "name": "Machine Information Circulation", "g": "Machine & Equipement Information", "owner": "NPI", "start": "2026-09-26", "finish": "2026-09-29"}, {"model": "KO2", "id": 12, "name": "Machine & Equipement Inventory verification", "g": "Machine & Equipement Information", "owner": "NPI", "start": "2026-09-29", "finish": "2026-09-30"}, {"model": "KO2", "id": 14, "name": "PTA phone information received from Lahore Office on Lark Group", "g": "PTA Approval", "owner": "Head-office", "start": "2026-10-02", "finish": "2026-10-02"}, {"model": "KO2", "id": 15, "name": "PTA phone received in factory", "g": "PTA Approval", "owner": "NPI", "start": "2026-10-02", "finish": "2026-10-02"}, {"model": "KO2", "id": 16, "name": "China team provides PTA document of phone", "g": "PTA Approval", "owner": "China", "start": "2026-10-02", "finish": "2026-10-08"}, {"model": "KO2", "id": 17, "name": "Verification of PTA phones", "g": "PTA Approval", "owner": "NPI", "start": "2026-10-08", "finish": "2026-10-08"}, {"model": "KO2", "id": 18, "name": "PTA phones send to HO team", "g": "PTA Approval", "owner": "NPI", "start": "2026-10-08", "finish": "2026-10-08"}, {"model": "KO2", "id": 19, "name": "TAC approval status", "g": "PTA Approval", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 21, "name": "BOM codes are provided by china team", "g": "BOM", "owner": "China", "start": "2026-10-01", "finish": "2026-10-01"}, {"model": "KO2", "id": 22, "name": "Material list preparation", "g": "BOM", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 23, "name": "BOM list preparation", "g": "BOM", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 24, "name": "Material list uploaded  on Kingdee", "g": "BOM", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 25, "name": "Bom list uploaded on Kingdee", "g": "BOM", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 26, "name": "Email circulated to all departments", "g": "BOM", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 28, "name": "Local Material list is received from China team", "g": "Local Materials", "owner": "China", "start": null, "finish": null}, {"model": "KO2", "id": 29, "name": "Local Material information is circulated to PMC team", "g": "Local Materials", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 31, "name": "New Local Material Application", "g": "Local Materials", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 32, "name": "New Local Material confirmation", "g": "Local Materials", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 34, "name": "Extract Testing material information from BOM", "g": "Testing Material", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 35, "name": "Circulate Testing Material information", "g": "Testing Material", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 37, "name": "Receive SOP from DCC china server", "g": "SOP/SIP Assembly", "owner": "China", "start": "2026-10-15", "finish": "2026-10-15"}, {"model": "KO2", "id": 38, "name": "Receive SIP from DCC china server", "g": "SOP/SIP Assembly", "owner": "China", "start": "2026-10-16", "finish": "2026-10-16"}, {"model": "KO2", "id": 39, "name": "DFM and Control plan circulation", "g": "SOP/SIP Assembly", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 40, "name": "Circulate SOP to relevant teams", "g": "SOP/SIP Assembly", "owner": "NPI", "start": "2026-10-15", "finish": "2026-10-15"}, {"model": "KO2", "id": 41, "name": "Circulate SIP to relevant teams", "g": "SOP/SIP Assembly", "owner": "NPI", "start": "2026-10-16", "finish": "2026-10-16"}, {"model": "KO2", "id": 42, "name": "Clean shed information circulation", "g": "SOP/SIP Assembly", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 43, "name": "SOP & SIP review", "g": "SOP/SIP Assembly", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 44, "name": "Release of SOP", "g": "SOP/SIP Assembly", "owner": "IE", "start": null, "finish": null}, {"model": "KO2", "id": 45, "name": "Release of SIP", "g": "SOP/SIP Assembly", "owner": "Unassigned", "start": null, "finish": null}, {"model": "KO2", "id": 46, "name": "Local formatting & printing", "g": "SOP/SIP Assembly", "owner": "QMS", "start": null, "finish": null}, {"model": "KO2", "id": 48, "name": "Receive SOP Packing from DCC china server", "g": "SOP Packing", "owner": "China", "start": null, "finish": null}, {"model": "KO2", "id": 49, "name": "Circulate SOP packing to relevant teams", "g": "SOP Packing", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 50, "name": "Release of SOP packing", "g": "SOP Packing", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 51, "name": "Local formatting & printing", "g": "SOP Packing", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 53, "name": "Golden Phones are received through China team or courier service", "g": "Golden Phones", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 54, "name": "Golden phones inventory is maintained on server & kingdee system", "g": "Golden Phones", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 55, "name": "Email is circulated regarding golden phones to all relevant departments", "g": "Golden Phones", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 56, "name": "Scripts are downloaded from MOM system", "g": "Golden Phones", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 57, "name": "Golden phones transferred to DWH", "g": "Golden Phones", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 58, "name": "Golden phones testing confirmation", "g": "Golden Phones", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 60, "name": "Market information is maintained on server", "g": "Market Information", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 61, "name": "Market information email is circulated", "g": "Market Information", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 63, "name": "Label standard is downloaded from DCC server", "g": "Label Template", "owner": "China", "start": null, "finish": null}, {"model": "KO2", "id": 64, "name": "Label & phone label information is circulated", "g": "Label Template", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 66, "name": "Aging information is circulated to all departments", "g": "Aging Information", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 67, "name": "Aging information is maintianed on server on excel file", "g": "Aging Information", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 69, "name": "ABOM PBOM & MES route information is maintained on server", "g": "Bind Key & MOM Route", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 70, "name": "Bind Key & MES Route email is circulated to all departments", "g": "Bind Key & MOM Route", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 72, "name": "Fixture arrival information is circulated by fixture team on arrival", "g": "Fixture Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 73, "name": "NPI teams performs the fixture verification", "g": "Fixture Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 74, "name": "Email is circulated to all departments after verification", "g": "Fixture Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 76, "name": "Material is arrived in factory", "g": "Material Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 77, "name": "NPI team verifies the shipment material through BOM", "g": "Material Verification", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 79, "name": "NPI team arranges a resource meeting", "g": "Resource Meeting", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 80, "name": "NPI team shares an email regarding resource meeting", "g": "Resource Meeting", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 82, "name": "Sample production", "g": "Trial Production", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 83, "name": "Trial Production", "g": "Trial Production", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 85, "name": "Closure Meeting", "g": "Mass Production Handover", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 86, "name": "Antenna Optimization", "g": "Mass Production Handover", "owner": "NPI", "start": null, "finish": null}, {"model": "KO2", "id": 87, "name": "Aging Optimization", "g": "Mass Production Handover", "owner": "NPI", "start": null, "finish": null}];
+let MODELS=[];
+let WS=[],OW=[];
+const $=id=>document.getElementById(id);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=d=>d?new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):null;
+const diff=(a,b)=>Math.round((Date.UTC(+b.slice(0,4),+b.slice(5,7)-1,+b.slice(8,10))-Date.UTC(+a.slice(0,4),+a.slice(5,7)-1,+a.slice(8,10)))/864e5);
+function lists(){
+  const pool=SUBS.filter(s=>$('md').value==='All models'||s.model===$('md').value);
+  WS=[...new Set(pool.map(s=>s.g))];
+  OW=[...new Set(pool.map(s=>s.owner))].sort((a,b)=>(a==='Unassigned')-(b==='Unassigned')||a.localeCompare(b));
+  const keep=(id,arr)=>{const v=$(id).value;$(id).innerHTML=['All',...arr].map(x=>`<option>${esc(x)}</option>`).join('');$(id).value=['All',...arr].includes(v)?v:'All'};
+  keep('ws',WS);keep('ow',OW);
+}
+// first planned date of each model in its Gantt chart
+let START={};
+function applyData(rows){
+  SUBS=rows;MODELS=[...new Set(SUBS.map(s=>s.model))];
+  const v=$('md').value;
+  $('md').innerHTML=[...MODELS,'All models'].map(x=>`<option>${esc(x)}</option>`).join('');
+  $('md').value=[...MODELS,'All models'].includes(v)?v:(MODELS[0]||'All models');
+  START={};MODELS.forEach(m=>{START[m]=SUBS.filter(s=>s.model===m).map(s=>s.start).filter(Boolean).sort()[0]||''});
+  lists();render();
+}
+function arc(cx,cy,r,a0,a1){const q=a=>[cx+r*Math.sin(a),cy-r*Math.cos(a)];const [x0,y0]=q(a0),[x1,y1]=q(a1);return `M${cx} ${cy}L${x0} ${y0}A${r} ${r} 0 ${a1-a0>Math.PI?1:0} 1 ${x1} ${y1}Z`}
+let cur=[];
+function bars(el,names,key){
+  const rows=names.map(n=>{const k=cur.filter(s=>s[key]===n);const c=x=>k.filter(s=>s.status===x).length;return{n,d:c('Completed'),p:c('In Progress'),i:c('Not Initiated'),t:k.length}});
+  const mx=Math.max(1,...rows.map(r=>r.t));
+  $(el).innerHTML=rows.map(r=>`<div class="row"><div class="n">${esc(r.n)}</div><div class="t"><i style="width:${r.d/mx*100}%;background:var(--done)"></i><i style="width:${r.p/mx*100}%;background:var(--prog)"></i><i style="width:${r.i/mx*100}%;background:var(--ni)"></i></div><div class="c">${r.d}/${r.t}</div></div>`).join('');
+}
+function render(){
+  const now=new Date(),rd=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0'),fm=$('md').value,fw=$('ws').value,fs=$('st').value,fo=$('ow').value;
+  // status: per model and task
+  const started={};
+  SUBS.forEach(s=>{const k=s.model+'|'+s.g;if((s.finish&&s.finish<rd)||(s.start&&s.start<=rd))started[k]=true});
+  SUBS.forEach(s=>{
+    s.status=(s.finish&&s.finish<rd)?'Completed':(started[s.model+'|'+s.g]?'In Progress':'Not Initiated');
+    s.flag=(s.status==='In Progress'&&s.finish===rd)?'Due today':'';
+  });
+  cur=SUBS.filter(s=>(fm==='All models'||s.model===fm)&&(fw==='All'||s.g===fw)&&(fs==='All'||s.status===fs)&&(fo==='All'||s.owner===fo));
+  const n=cur.length,c=x=>cur.filter(s=>s.status===x).length,d=c('Completed'),p=c('In Progress'),ni=c('Not Initiated'),pc=n?Math.round(d/n*100):0;
+  const st0=fm==='All models'?MODELS.map(m=>START[m]).filter(Boolean).sort()[0]:START[fm];
+  const days=st0?Math.max(0,diff(st0,rd)):null;
+  const tl=[['Subtasks selected',n],['Completed',d],['In progress',p],['Not initiated',ni],['Complete',pc+'%'],['Due today',cur.filter(s=>s.flag==='Due today').length],['Days since start',days,days===null?'No start date':(fm==='All models'?'Since earliest start, ':'Since ')+fmt(st0)]];
+  $('tiles').innerHTML=tl.map(t=>`<div class="tile"><div class="k">${t[0]}</div><div class="v">${t[1]===null?'-':t[1]}</div>${t[2]?`<div class="s">${t[2]}</div>`:''}</div>`).join('');
+  // pie
+  const pct=v=>n?Math.round(v/n*100):0;
+  const parts=[[d,'var(--done)','Completed'],[p,'var(--prog)','In progress'],[ni,'var(--ni)','Not initiated']];
+  let svg='';
+  const live=parts.filter(x=>x[0]>0);
+  if(!n) svg='<circle cx="105" cy="105" r="90" fill="var(--track)"/>';
+  else if(live.length===1) svg=`<circle cx="105" cy="105" r="90" fill="${live[0][1]}"/>`;
+  else{let a=0;live.forEach(x=>{const b=a+x[0]/n*2*Math.PI;svg+=`<path d="${arc(105,105,90,a,b)}" fill="${x[1]}"/>`;a=b})}
+  svg+='<circle cx="105" cy="105" r="46" fill="var(--surface)"/>';
+  svg+=`<text x="105" y="104" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="24" font-weight="500" fill="var(--fg)">${pc}%</text><text x="105" y="124" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="11" fill="var(--muted)">completed</text>`;
+  $('pie').innerHTML=`<svg viewBox="0 0 210 210" role="img" aria-label="${d} completed, ${p} in progress, ${ni} not initiated">${svg}</svg><div class="leg">${parts.map(x=>`<div><i style="background:${x[1]}"></i><b>${pct(x[0])}%</b><span>${x[2]} · ${x[0]} subtasks</span></div>`).join('')}</div>`;
+  bars('wsbars',WS,'g');bars('owbars',OW,'owner');
+  $('cnt').textContent=`Showing ${n} subtasks that match the selections.`;
+  const pill=s=>s.status==='Completed'?'<span class="pill done">Completed</span>':s.status==='Not Initiated'?'<span class="pill ni">Not Initiated</span>':s.flag==='Due today'?'<span class="pill due">Due today</span>':'<span class="pill prog">In Progress</span>';
+  $('rows').innerHTML=n?cur.map(s=>`<tr><td class="d">${esc(s.model)}</td><td class="n">${s.id}</td><td>${esc(s.name)}</td><td>${esc(s.g)}</td><td>${esc(s.owner)}</td><td class="d">${s.finish?fmt(s.finish):'<span class="none">Not set</span>'}</td><td>${pill(s)}</td></tr>`).join(''):'<tr><td colspan="7" class="none">No subtasks match these selections.</td></tr>';
+}
+$('md').addEventListener('change',()=>{lists();render()});
+['ws','st','ow'].forEach(i=>$(i).addEventListener('change',render));
+$('reset').onclick=()=>{$('md').value=MODELS[0]||'All models';lists();$('ws').value='All';$('st').value='All';$('ow').value='All';render()};
+applyData(SUBS);
+
+/* ---------- live link to the Google Sheet (public CSV, no Claude needed) ---------- */
+const SHEET_ID='1ZF55Uc_NYWG-G5dRrZkpzIjfLmS66NqrseYqCvFb9mY';
+const SHEET_URL='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit';
+const CSV_URL='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:csv';
+const setLive=(cls,html)=>{const e=$('live');e.className='live '+cls;e.innerHTML=html};
+function normDate(v){
+  v=(v||'').trim();if(!v)return null;
+  let m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  m=v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  const t=Date.parse(v+' 12:00');
+  if(!isNaN(t)){const d=new Date(t);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+  return null;
+}
+function parseCSV(text){
+  const rows=[];let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){cur+='"';i++}else q=false}else cur+=ch}
+    else if(ch==='"')q=true;
+    else if(ch===','){row.push(cur);cur=''}
+    else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cur);rows.push(row);row=[];cur=''}
+    else cur+=ch;
+  }
+  if(cur!==''||row.length){row.push(cur);rows.push(row)}
+  return rows;
+}
+function parseSheet(text){
+  const rows=parseCSV(text).map(r=>r.map(c=>c.trim()));
+  const hi=rows.findIndex(r=>r.some(c=>/^model$/i.test(c)));
+  if(hi<0)throw new Error('header');
+  const H=rows[hi].map(c=>c.toLowerCase());
+  const ix=(...n)=>H.findIndex(h=>n.includes(h));
+  const c={model:ix('model'),id:ix('id'),g:ix('task','workstream'),name:ix('subtask'),owner:ix('owner'),start:ix('start','planned start'),finish:ix('finish','planned finish')};
+  if(c.model<0||c.g<0||c.name<0)throw new Error('header');
+  const out=[];
+  rows.slice(hi+1).forEach(r=>{
+    const g=k=>c[k]>=0?(r[c[k]]||''):'';
+    if(!g('model')||!g('name'))return;
+    out.push({model:g('model'),id:g('id'),name:g('name'),g:g('g'),owner:g('owner')||'Unassigned',start:normDate(g('start')),finish:normDate(g('finish'))});
+  });
+  return out;
+}
+let lastOk=null,busy=false;
+async function load(){
+  if(busy)return;busy=true;
+  try{
+    const res=await fetch(CSV_URL+'&_='+Date.now(),{cache:'no-store'});
+    if(!res.ok)throw new Error('http '+res.status);
+    const rows=parseSheet(await res.text());
+    if(!rows.length)throw new Error('empty');
+    applyData(rows);lastOk=new Date();
+    setLive('ok',`<b>Live</b> · ${rows.length} subtasks read from the Google Sheet · updated ${lastOk.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})} · <a href="${SHEET_URL}" target="_blank" rel="noopener">Open sheet</a>`);
+  }catch(e){
+    const snap=lastOk?'Showing the last data received.':'Showing the saved snapshot from 17 Oct 2026.';
+    setLive('err',`Could not read the Google Sheet (it must be shared as "Anyone with the link can view"). ${snap} Will retry automatically. <a href="${SHEET_URL}" target="_blank" rel="noopener">Open sheet</a>`);
+  }finally{busy=false}
+}
+$('refresh').onclick=()=>{setLive('wait','Refreshing…');load()};
+load();setInterval(load,30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+</script>
+
+</body></html>
