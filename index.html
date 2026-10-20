@@ -81,7 +81,7 @@ td.n{color:var(--muted)}
 .live.err{background:var(--ni-bg);color:var(--ni-fg)}
 footer{color:var(--muted);font-size:12px}
 </style>
-<div class="band side"><div class="wrap"><div><h1>Project Progress Report</h1><p>Status from the project Gantt charts. Use the selections to pick a model, task, status or owner.</p><div class="live wait" id="live">Connecting to the Google Sheet…</div><button class="reset" id="refresh" type="button" style="margin-top:8px">Refresh now</button><div class="alert" id="alert" hidden></div></div></div></div>
+<div class="band side"><div class="wrap"><div><h1>Project Progress Report</h1><p>Status from the project Gantt charts. Use the selections to pick a model, task, status or owner.</p><div class="live wait" id="live">Connecting to the Google Sheet…</div><button class="reset" id="refresh" type="button" style="margin-top:8px">Refresh now</button> <button class="reset" id="notify" type="button" style="margin-top:8px" hidden>Enable alerts</button><div class="alert" id="alert" hidden></div></div></div></div>
 <main class="wrap side">
   <section class="panel"><h2>Select tasks</h2>
     <div class="sel">
@@ -124,6 +124,26 @@ function lists(){
 }
 // first planned date of each model in its Gantt chart
 let START={};
+// browser pop-up alert when a task goes past its specified days (only from live sheet data, once per task per day)
+let LIVE=false;const NOTIFIED=new Set();
+function notifyState(){
+  const b=$('notify');if(!b)return;
+  const ok=typeof Notification!=='undefined';
+  b.hidden=!ok||Notification.permission==='granted';
+  b.textContent=ok&&Notification.permission==='denied'?'Alerts are blocked in this browser':'Enable alerts';
+}
+function pushAlerts(list,rd){
+  if(!LIVE||typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  let saved={};try{saved=JSON.parse(localStorage.getItem('exceededSeen')||'{}')}catch(e){}
+  if(saved.day!==rd)saved={day:rd};
+  list.forEach(o=>{
+    const k=o.model+'|'+o.g;
+    if(saved[k]||NOTIFIED.has(rd+k))return;
+    NOTIFIED.add(rd+k);saved[k]=1;
+    try{new Notification('Task exceeded its specified days',{body:`${o.model} · ${o.g}: ${o.used} days used, ${o.days} specified (${o.late} ${o.late===1?'day':'days'} over)`,tag:k})}catch(e){}
+  });
+  try{localStorage.setItem('exceededSeen',JSON.stringify(saved))}catch(e){}
+}
 function applyData(rows){
   SUBS=rows;MODELS=[...new Set(SUBS.map(s=>s.model))];
   const v=$('md').value;
@@ -184,6 +204,7 @@ function render(){
     al.innerHTML=`&#9888; ${allEx.length} ${allEx.length===1?'task has':'tasks have'} exceeded the specified days: ${names}. <a href="#odpanel" onclick="showExceeded()">See list</a>`;
   }else al.hidden=true;
   document.title=(allEx.length?'('+allEx.length+') ':'')+'Project Progress Report';
+  notifyState();pushAlerts(allEx,rd);
   const tasksShown=Object.values(G).filter(o=>o.used!==null&&(fm==='All models'||o.model===fm)&&(fw==='All'||o.g===fw)).sort((a,b)=>(b.od-a.od)||(b.late-a.late)||(a.complete-b.complete)||a.model.localeCompare(b.model));
   const tstat=o=>!o.days?'<span class="none">No limit</span>':o.od?`<span class="pill ex">${o.late} ${o.late===1?'day':'days'} over</span>`:o.complete?(o.over?`<span class="pill ex">Completed, ${o.over} ${o.over===1?'day':'days'} over</span>`:'<span class="pill done">Completed in time</span>'):(o.days-o.used===0?'<span class="pill due">Last day</span>':`<span class="pill prog">${o.days-o.used} ${o.days-o.used===1?'day':'days'} left</span>`);
   $('odpanel').innerHTML='<h2>Task days</h2>'+(!HASDAYS?'<p class="cnt">Specified days are missing. Add a "Days" column to the Google Sheet (the specified days for each task) to turn this on.</p>':tasksShown.length?`<p class="cnt">${odList.length?`${odList.length} ${odList.length===1?'task has':'tasks have'} exceeded the specified days. `:'No running task has exceeded its specified days. '}Days are counted from the first start date of the task (that day is day 1).</p><div class="scroll"><table><thead><tr><th>Model</th><th>Task</th><th>Started</th><th>Specified days</th><th>Days used</th><th>Subtasks done</th><th>Status</th></tr></thead><tbody>${tasksShown.map(o=>`<tr><td class="d">${esc(o.model)}</td><td>${esc(o.g)}</td><td class="d">${fmt(o.start)}</td><td class="d">${o.days||'-'}</td><td class="d"><b>${o.used}</b></td><td class="d">${o.done}/${o.total}</td><td>${tstat(o)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="cnt">No task has started yet for these selections.</p>');
@@ -215,6 +236,7 @@ function render(){
 $('md').addEventListener('change',()=>{lists();render()});
 ['ws','st','ow'].forEach(i=>$(i).addEventListener('change',render));
 $('reset').onclick=()=>{$('md').value=MODELS[0]||'All models';lists();$('ws').value='All';$('st').value='All';$('ow').value='All';render()};
+$('notify').onclick=()=>{if(typeof Notification==='undefined')return;Notification.requestPermission().then(()=>{notifyState();render()})};
 applyData(SUBS);
 
 /* ---------- live link to the Google Sheet (public CSV, no Claude needed) ---------- */
@@ -269,7 +291,7 @@ async function load(){
     if(!res.ok)throw new Error('http '+res.status);
     const rows=parseSheet(await res.text());
     if(!rows.length)throw new Error('empty');
-    applyData(rows);lastOk=new Date();
+    LIVE=true;applyData(rows);lastOk=new Date();
     setLive('ok',`<b>Live</b> · ${rows.length} subtasks read from the Google Sheet · updated ${lastOk.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})} · <a href="${SHEET_URL}" target="_blank" rel="noopener">Open sheet</a>`);
   }catch(e){
     const snap=lastOk?'Showing the last data received.':'Showing the saved snapshot from 20 Oct 2026.';
