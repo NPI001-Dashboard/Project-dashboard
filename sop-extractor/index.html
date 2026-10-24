@@ -82,6 +82,7 @@
       </div>
       <div class="row" style="margin-top:8px">
         <label><input type="checkbox" id="fxOnly" checked> Sirf fixture rows (治具 / 夹具 / 工装 / fixture / jig wali)</label>
+        <label><input type="checkbox" id="sumDup" checked> Same fixture code ki 用量 alag pages/stations se jama karein</label>
       </div>
       <p class="hint" style="margin:6px 0 0">Columns "Auto" par theek pehchane jate hain. Agar galat lage to yahan se sahi column chun lein.</p>
     </div>
@@ -112,8 +113,13 @@ const ROLE = {
   serial: /序号|serial|s\.?\s*no/i,
   name:   /设备名称|工装名称|治具名称|名称|equipment\s*name|description|品名/i,
   code:   /规格|specification|料号|物料编码|编码|part\s*(no|code)|fixture\s*code/i,
-  qty:    /数量|quantity|qty/i
+  qty:    /数量|用量|quantity|qty/i
 };
+// header-like words that must NOT be taken as a column header (process name, process number)
+const ROLE_NOT = { serial: /工序号/, name: /工序名称|工艺名称/, code: /^$/, qty: /^$/ };
+// tables that are not the fixture list (materials / BOM)
+const MATERIAL_HDR = /物料|material|bom/i;
+const roleOk = (role, s) => ROLE[role].test(s) && !ROLE_NOT[role].test(s) && s.length <= 32;
 
 function looksLikeCode(s) {
   s = String(s).replace(/\s+/g, "");
@@ -151,7 +157,7 @@ function plainLines(items0) {
 
 // find table headers (serial / name / code / qty) on a page
 function findHeaders(items) {
-  const cand = role => items.filter(i => ROLE[role].test(i.s) && i.s.length <= 32);
+  const cand = role => items.filter(i => roleOk(role, i.s));
   const N = cand("name"), C = cand("code"), Q = cand("qty"), S = cand("serial");
   const res = [];
   for (const n of N) {
@@ -160,11 +166,18 @@ function findHeaders(items) {
     const c = near(C, [n]); if (!c) continue;
     const q = near(Q, [n, c]); if (!q) continue;
     const s = near(S, [n, c, q]);
-    res.push({ name: n, code: c, qty: q, serial: s });
+    const ys = [n.y, c.y, q.y].concat(s ? [s.y] : []);
+    res.push({
+      name: n, code: c, qty: q, serial: s,
+      spread: Math.max(...ys) - Math.min(...ys) + (s ? 0 : 6),   // headers sit on one line: smaller spread = better
+      skip: MATERIAL_HDR.test(n.s + " " + c.s)                     // materials / BOM table, not the fixture list
+    });
   }
-  res.sort((a, b) => b.name.y - a.name.y);
+  // keep the tightest header of each cluster (many candidates can overlap in y)
+  res.sort((a, b) => a.spread - b.spread);
   const out = [];
-  for (const h of res) if (!out.length || Math.abs(out[out.length - 1].name.y - h.name.y) > 35) out.push(h);
+  for (const h of res) if (!out.some(o => Math.abs(o.name.y - h.name.y) <= 35)) out.push(h);
+  out.sort((a, b) => b.name.y - a.name.y);
   return out;
 }
 
@@ -196,6 +209,14 @@ function extractGridRows(items, sec) {
   if (!anchors.length) return [];
   anchors.sort((a, b) => b.y - a.y);
 
+  // stop at the first big gap (another table starting below this one)
+  if (anchors.length > 2) {
+    const d0 = []; for (let i = 0; i < anchors.length - 1; i++) d0.push(anchors[i].y - anchors[i + 1].y);
+    const med = median(d0);
+    const cut = d0.findIndex(d => d > med * 2.2);
+    if (cut >= 0) anchors = anchors.slice(0, cut + 1);
+  }
+
   const diffs = []; for (let i = 0; i < anchors.length - 1; i++) diffs.push(anchors[i].y - anchors[i + 1].y);
   const pitch = diffs.length ? median(diffs) : 40;
   const maxDiff = diffs.length ? Math.max(...diffs) : 40;
@@ -211,7 +232,11 @@ function extractGridRows(items, sec) {
     for (const ln of lines) {
       ln.items.sort((a, b) => a.x - b.x);
       let t = ln.items[0].s; for (let i = 1; i < ln.items.length; i++) t = joinTxt(t, ln.items[i].s);
-      out = out ? joinTxt(out, t) : t;
+      if (!out) { out = t; continue; }
+      // wrapped line: Chinese -> latin/number means a new "_" separated part started (e.g. ...背胶 / TL_X6896)
+      const a = out.slice(-1), b = t.charAt(0);
+      if (CJK.test(a) && /[A-Za-z0-9]/.test(b)) out += "_" + t;
+      else out = joinTxt(out, t);
     }
     return out;
   };
@@ -234,7 +259,6 @@ async function readPdf(file) {
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf, ...PDF_OPTS }).promise;
   const gridRows = [], plainRows = [];
-  let lastGrid = null;
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
@@ -244,18 +268,12 @@ async function readPdf(file) {
     plainRows.push(...plainLines(items));
 
     const headers = findHeaders(items);
-    const sections = [];
-    if (headers.length) {
-      headers.forEach((h, i) => {
-        const grid = gridFromHeader(h);
-        const nextHigh = i + 1 < headers.length ? gridFromHeader(headers[i + 1]).highY + 12 : -Infinity;
-        sections.push({ grid, top: grid.lowY - 1, bottom: nextHigh });
-      });
-      lastGrid = sections[sections.length - 1].grid;
-    } else if (lastGrid) {
-      sections.push({ grid: lastGrid, top: Infinity, bottom: -Infinity });
-    }
-    for (const sec of sections) gridRows.push(...extractGridRows(items, sec));
+    headers.forEach((h, i) => {
+      if (h.skip) return;                       // materials / BOM table: ignore, but it still bounds the table above it
+      const grid = gridFromHeader(h);
+      const nextHigh = i + 1 < headers.length ? gridFromHeader(headers[i + 1]).highY + 12 : -Infinity;
+      gridRows.push(...extractGridRows(items, { grid, top: grid.lowY - 1, bottom: nextHigh }));
+    });
   }
   if (!plainRows.length) throw new Error("PDF me text nahi mila (shayad scanned hai). OCR chahiye ho to bata dein.");
   const out = gridRows.length ? gridRows : plainRows;
@@ -292,10 +310,12 @@ function withForced(colMap, forced) {
   return m;
 }
 
-function extractFixtures(tr, forced) {
+function extractFixtures(tr, forced, opts) {
   forced = forced || {};
+  const sumDup = !opts || opts.sum !== false;
   const grid = !!tr.colMap;
   let colMap = grid ? { ...tr.colMap } : null;
+  let skipTable = false;          // true while inside a materials / BOM table
   const result = [];
 
   const isMarker = r => FIXTURE_HINT.test(r.join(" ")) && r.filter(Boolean).length <= 2 && !r.some(looksLikeCode);
@@ -307,10 +327,12 @@ function extractFixtures(tr, forced) {
       const iCode = cells.findIndex(c => c.length <= 40 && ROLE.code.test(c) && !looksLikeCode(c));
       const iQty = cells.findIndex(c => c.length <= 40 && ROLE.qty.test(c));
       if (iCode >= 0 && iQty >= 0 && iCode !== iQty) {
-        const iDesc = cells.findIndex((c, i) => i !== iCode && i !== iQty && c.length <= 40 && ROLE.name.test(c));
+        const iDesc = cells.findIndex((c, i) => i !== iCode && i !== iQty && c.length <= 40 && ROLE.name.test(c) && !ROLE_NOT.name.test(c));
+        skipTable = MATERIAL_HDR.test(cells[iCode] + " " + (iDesc >= 0 ? cells[iDesc] : ""));
         colMap = { code: iCode, desc: iDesc, qty: iQty };
         continue;
       }
+      if (skipTable) continue;
       if (useMarkers) {
         if (isMarker(cells)) { inSection = true; continue; }
         if (!inSection) continue;
@@ -347,14 +369,14 @@ function extractFixtures(tr, forced) {
     result.push({ code, zh: zh.trim(), en: "", qty, fx: FIXTURE_HINT.test(zh) });
   }
 
-  // merge duplicates (same code + same description): add quantities
+  // same fixture code on several pages/stations: add the quantities (optional)
+  if (!sumDup) return result;
   const merged = new Map();
   for (const r of result) {
-    const k = r.code + "||" + r.zh;
-    if (merged.has(k)) {
-      const m = merged.get(k);
+    if (merged.has(r.code)) {
+      const m = merged.get(r.code);
       if (r.qty !== null) m.qty = (m.qty || 0) + r.qty;
-    } else merged.set(k, { ...r });
+    } else merged.set(r.code, { ...r });
   }
   return [...merged.values()];
 }
@@ -437,7 +459,7 @@ function forcedMap() {
   return { code: +$("mapCode").value, desc: +$("mapDesc").value, qty: +$("mapQty").value };
 }
 function runExtraction() {
-  rows = extractFixtures(tableRows, forcedMap());
+  rows = extractFixtures(tableRows, forcedMap(), { sum: $("sumDup").checked });
   rows.forEach(fillEn);
   render();
   const shown = rows.filter(isShown).length;
@@ -445,7 +467,7 @@ function runExtraction() {
   else if (!shown) setStatus(rows.length + " rows mili lekin koi fixture wali nahi lagi. 'Sirf fixture rows' ka tick hata kar dekhein.", "warn");
   else setStatus(shown + " fixture rows mili" + (rows.length > shown ? " (" + (rows.length - shown) + " rows fixture nahi lagi, chhupi hui hain)" : "") + ". Ab Translate dabayein.", "ok");
 }
-["mapCode", "mapDesc", "mapQty"].forEach(id => $(id).addEventListener("change", runExtraction));
+["mapCode", "mapDesc", "mapQty", "sumDup"].forEach(id => $(id).addEventListener("change", runExtraction));
 $("fxOnly").addEventListener("change", () => { render(); const shown = rows.filter(isShown).length; setStatus(shown + " rows dikh rahi hain.", "ok"); });
 
 const isShown = r => !$("fxOnly").checked || r.fx || r.manual || /fixture|jig/i.test(r.en || "");
