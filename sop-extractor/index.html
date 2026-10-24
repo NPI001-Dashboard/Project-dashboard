@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOP Fixture Extractor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+  :root { --bg:#f4f6fa; --card:#fff; --ink:#1c2433; --muted:#66708a; --brand:#1f5eff; --line:#e1e6f0; --ok:#12804a; --warn:#b45309; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--brand); color:#fff; padding:18px 24px; }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:4px 0 0; font-size:13px; opacity:.9; }
+  main { max-width:1100px; margin:20px auto; padding:0 16px 40px; display:grid; gap:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .card h2 { margin:0 0 10px; font-size:15px; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  label { font-size:13px; color:var(--muted); }
+  select, input[type=text], input[type=password] { padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:14px; }
+  input[type=text], input[type=password] { min-width:280px; }
+  button { background:var(--brand); color:#fff; border:0; padding:9px 16px; border-radius:8px; font-size:14px; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--brand); border:1px solid var(--brand); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  #drop { border:2px dashed #b9c4de; border-radius:12px; padding:28px; text-align:center; color:var(--muted); cursor:pointer; }
+  #drop.over { background:#eef3ff; border-color:var(--brand); }
+  #status { font-size:13px; color:var(--muted); min-height:18px; }
+  #status.ok { color:var(--ok); } #status.warn { color:var(--warn); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+  th { background:#f0f3fa; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  td[contenteditable]:focus { outline:2px solid var(--brand); background:#f7faff; }
+  td.qty, th.qty { text-align:right; width:90px; }
+  td.del { width:36px; text-align:center; color:#c0392b; cursor:pointer; }
+  .hint { font-size:12px; color:var(--muted); margin-top:8px; }
+  details summary { cursor:pointer; font-size:13px; color:var(--muted); }
+  pre { background:#f0f3fa; padding:10px; border-radius:8px; overflow:auto; max-height:220px; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SOP Fixture Extractor</h1>
+  <p>SOP file upload karein: Part Code, English Description aur Quantity nikal kar milegi. File aapke browser me hi process hoti hai.</p>
+</header>
+<main>
+
+  <div class="card">
+    <h2>1. Translation setting</h2>
+    <div class="row">
+      <label>Translator
+        <select id="provider">
+          <option value="mymemory">MyMemory (free, no key)</option>
+          <option value="claude">Claude API (behtar quality, key chahiye)</option>
+        </select>
+      </label>
+      <label id="keyWrap" style="display:none">API key
+        <input type="password" id="apiKey" placeholder="sk-ant-...">
+      </label>
+    </div>
+    <p class="hint">Key sirf is browser ke localStorage me save hoti hai. Translation ke waqt sirf description ka text bheja jata hai, poori file nahi.</p>
+  </div>
+
+  <div class="card">
+    <h2>2. SOP file</h2>
+    <div id="drop">Yahan SOP file drop karein ya click karke chunein<br><small>PDF, Excel (.xlsx/.xls/.csv) ya Word (.docx)</small></div>
+    <input type="file" id="file" accept=".pdf,.xlsx,.xls,.csv,.docx" hidden>
+    <div id="status"></div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <h2>3. Result</h2>
+    <div class="row" style="margin-bottom:10px">
+      <button id="translateBtn">Translate karein</button>
+      <button id="downloadBtn" class="secondary">Excel download</button>
+      <button id="copyBtn" class="secondary">Copy</button>
+      <button id="addBtn" class="secondary">+ Row</button>
+    </div>
+    <table id="tbl">
+      <thead><tr><th>Part Code</th><th>Description (English)</th><th class="qty">Qty</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="hint">Kisi bhi cell par click karke edit kar sakte hain. Galat row ko &times; se hata dein.</p>
+    <details style="margin-top:10px"><summary>Padhi gayi raw lines dekhein (agar extraction galat lage)</summary><pre id="raw"></pre></details>
+  </div>
+
+</main>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const $ = id => document.getElementById(id);
+let rows = [];            // {code, zh, en, qty}
+let rawLines = [];
+
+const CJK = /[\u3400-\u9fff]/;
+const HDR_CODE = /(料号|物料编码|物料号|部品编号|编码|编号|P\/?N|Part\s*(No|Code|Number)|Item\s*Code)/i;
+const HDR_DESC = /(名称|描述|品名|规格|说明|Description|Name)/i;
+const HDR_QTY  = /(数量|用量|Qty|Quantity)/i;
+const FIXTURE_HINT = /(治具|夹具|工装|载具|模具|测试架|fixture|jig)/i;
+
+/* ---------- settings ---------- */
+$("provider").value = localStorage.getItem("sfx_provider") || "mymemory";
+$("apiKey").value = localStorage.getItem("sfx_key") || "";
+function syncProvider() {
+  $("keyWrap").style.display = $("provider").value === "claude" ? "" : "none";
+  localStorage.setItem("sfx_provider", $("provider").value);
+}
+$("provider").addEventListener("change", syncProvider); syncProvider();
+$("apiKey").addEventListener("change", () => localStorage.setItem("sfx_key", $("apiKey").value.trim()));
+
+function setStatus(msg, cls) { const s = $("status"); s.textContent = msg; s.className = cls || ""; }
+
+/* ---------- file input ---------- */
+const drop = $("drop");
+drop.addEventListener("click", () => $("file").click());
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+$("file").addEventListener("change", e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+async function handleFile(file) {
+  setStatus("File padh raha hoon...");
+  rows = []; rawLines = [];
+  try {
+    const name = file.name.toLowerCase();
+    let tableRows;   // array of arrays of cell strings
+    if (name.endsWith(".pdf")) tableRows = await readPdf(file);
+    else if (name.endsWith(".docx")) tableRows = await readDocx(file);
+    else tableRows = await readSheet(file);
+    rawLines = tableRows.map(r => r.join(" | "));
+    rows = extractFixtures(tableRows);
+    $("raw").textContent = rawLines.join("\n");
+    render();
+    $("resultCard").style.display = "";
+    if (!rows.length) setStatus("Koi fixture row nahi mili. Neeche raw lines dekh kar mujhe sample bhej dein.", "warn");
+    else setStatus(rows.length + " fixture rows mili. Ab Translate dabayein.", "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("Error: " + err.message, "warn");
+  }
+}
+
+/* ---------- readers: all return array of rows (array of cell strings) ---------- */
+async function readPdf(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const out = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const items = content.items.filter(i => i.str.trim()).map(i => ({ s: i.str.trim(), x: i.transform[4], y: i.transform[5], w: i.width }));
+    // group by y (same visual line)
+    items.sort((a, b) => b.y - a.y || a.x - b.x);
+    const lines = [];
+    for (const it of items) {
+      const last = lines[lines.length - 1];
+      if (last && Math.abs(last.y - it.y) < 3) last.items.push(it);
+      else lines.push({ y: it.y, items: [it] });
+    }
+    for (const ln of lines) {
+      ln.items.sort((a, b) => a.x - b.x);
+      // split into cells where horizontal gap is large
+      const cells = []; let cur = ln.items[0].s, prevEnd = ln.items[0].x + ln.items[0].w;
+      for (let i = 1; i < ln.items.length; i++) {
+        const it = ln.items[i];
+        if (it.x - prevEnd > 8) { cells.push(cur); cur = it.s; } else cur += (CJK.test(it.s) || CJK.test(cur) ? "" : " ") + it.s;
+        prevEnd = it.x + it.w;
+      }
+      cells.push(cur);
+      out.push(cells);
+    }
+  }
+  if (!out.length) throw new Error("PDF me text nahi mila (shayad scanned hai). OCR chahiye ho to bata dein.");
+  return out;
+}
+
+async function readSheet(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const out = [];
+  for (const sn of wb.SheetNames) {
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "", raw: false });
+    for (const r of aoa) { const cells = r.map(c => String(c).trim()); if (cells.some(Boolean)) out.push(cells); }
+  }
+  return out;
+}
+
+async function readDocx(file) {
+  const buf = await file.arrayBuffer();
+  const res = await mammoth.convertToHtml({ arrayBuffer: buf });
+  const doc = new DOMParser().parseFromString(res.value, "text/html");
+  const out = [];
+  doc.querySelectorAll("table tr").forEach(tr => {
+    out.push([...tr.children].map(td => td.textContent.trim()));
+  });
+  if (!out.length) doc.querySelectorAll("p").forEach(p => { const t = p.textContent.trim(); if (t) out.push([t]); });
+  return out;
+}
+
+/* ---------- extraction ---------- */
+function looksLikeCode(s) {
+  s = s.trim();
+  return /^[A-Za-z0-9][A-Za-z0-9\-_.\/]{4,}$/.test(s) && /\d/.test(s) && !CJK.test(s) && !/^\d{1,4}$/.test(s);
+}
+function parseQty(s) {
+  const m = String(s).trim().match(/^(\d{1,5})(?:\s*(?:pcs|PCS|个|套|件|set|SET|pc|PC))?$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function extractFixtures(tr) {
+  const result = [];
+  let colMap = null;      // {code, desc, qty}
+  let inFixtureSection = false;
+  let sawSectionMarker = false;
+
+  // is there any explicit fixture section marker at all?
+  const isMarker = r => FIXTURE_HINT.test(r.join(" ")) && r.filter(Boolean).length <= 2 && !r.some(looksLikeCode);
+  sawSectionMarker = tr.some(isMarker);
+
+  for (const cells of tr) {
+    const line = cells.join(" ");
+
+    // header row detection
+    const iCode = cells.findIndex(c => HDR_CODE.test(c) && !CJK.test(c.replace(HDR_CODE, "")) || /料号|物料编码|编码|部品编号/.test(c));
+    const iDesc = cells.findIndex(c => /名称|描述|品名|说明|Description/i.test(c));
+    const iQty  = cells.findIndex(c => /数量|用量|Qty|Quantity/i.test(c));
+    if (iCode >= 0 && iQty >= 0 && iCode !== iQty) {
+      colMap = { code: iCode, desc: iDesc, qty: iQty };
+      continue;
+    }
+
+    if (sawSectionMarker && isMarker(cells)) { inFixtureSection = true; continue; }
+    if (sawSectionMarker && !inFixtureSection) continue;
+
+    let code = null, zh = "", qty = null;
+
+    if (colMap && cells.length > Math.max(colMap.code, colMap.qty)) {
+      code = cells[colMap.code];
+      qty = parseQty(cells[colMap.qty]);
+      zh = colMap.desc >= 0 ? (cells[colMap.desc] || "") : "";
+      if (!looksLikeCode(code) || qty === null) code = null;
+    }
+
+    if (!code) {
+      // heuristic: find code, quantity, description in any cell order
+      const codeCell = cells.find(looksLikeCode);
+      if (!codeCell) continue;
+      const rest = cells.filter(c => c !== codeCell);
+      const descCell = rest.filter(c => CJK.test(c)).sort((a, b) => b.length - a.length)[0] || "";
+      const qtyCell = [...rest].reverse().find(c => parseQty(c) !== null);
+      if (!descCell || !qtyCell) continue;
+      code = codeCell; zh = descCell; qty = parseQty(qtyCell);
+    }
+    if (!zh) {
+      const d = cells.filter(c => CJK.test(c)).sort((a, b) => b.length - a.length)[0];
+      zh = d || "";
+    }
+    result.push({ code: code.trim(), zh: zh.trim(), en: "", qty });
+  }
+
+  // merge duplicates (same code + same description): add quantities
+  const merged = new Map();
+  for (const r of result) {
+    const k = r.code + "||" + r.zh;
+    if (merged.has(k)) merged.get(k).qty += r.qty; else merged.set(k, { ...r });
+  }
+  return [...merged.values()];
+}
+
+/* ---------- translation ---------- */
+const cacheKey = "sfx_cache_v1";
+const cache = JSON.parse(localStorage.getItem(cacheKey) || "{}");
+const saveCache = () => localStorage.setItem(cacheKey, JSON.stringify(cache));
+
+async function translateMyMemory(text) {
+  const url = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(text) + "&langpair=zh-CN|en";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("MyMemory error " + res.status);
+  const j = await res.json();
+  if (j.responseStatus && j.responseStatus !== 200) throw new Error(j.responseDetails || "MyMemory limit");
+  return j.responseData.translatedText;
+}
+
+async function translateClaudeBatch(texts, key) {
+  const prompt = "Translate these Chinese manufacturing fixture/jig descriptions to concise English. " +
+    "Use standard factory terminology (e.g. 治具 = fixture/jig). " +
+    "Return ONLY a JSON array of strings, same order and same length as the input.\n\n" + JSON.stringify(texts);
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({ model: "claude-haiku-5-5", max_tokens: 4000, messages: [{ role: "user", content: prompt }] })
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error("Claude API " + res.status + ": " + t.slice(0, 200)); }
+  const j = await res.json();
+  const txt = j.content.map(c => c.text || "").join("");
+  const m = txt.match(/\[[\s\S]*\]/);
+  const arr = JSON.parse(m ? m[0] : txt);
+  if (arr.length !== texts.length) throw new Error("Translation count mismatch");
+  return arr;
+}
+
+$("translateBtn").addEventListener("click", async () => {
+  const provider = $("provider").value;
+  const key = $("apiKey").value.trim();
+  if (provider === "claude" && !key) { setStatus("Claude API key daalein.", "warn"); return; }
+  const btn = $("translateBtn"); btn.disabled = true;
+  try {
+    const uniq = [...new Set(rows.map(r => r.zh).filter(z => z && CJK.test(z) && !cache[z]))];
+    if (provider === "claude") {
+      for (let i = 0; i < uniq.length; i += 40) {
+        setStatus("Translate ho raha hai... " + Math.min(i + 40, uniq.length) + "/" + uniq.length);
+        const batch = uniq.slice(i, i + 40);
+        const out = await translateClaudeBatch(batch, key);
+        batch.forEach((z, k) => cache[z] = out[k]);
+        saveCache();
+      }
+    } else {
+      for (let i = 0; i < uniq.length; i++) {
+        setStatus("Translate ho raha hai... " + (i + 1) + "/" + uniq.length);
+        cache[uniq[i]] = await translateMyMemory(uniq[i]);
+        saveCache();
+      }
+    }
+    // keep manual edits: only fill empty English cells
+    rows.forEach(r => { if (!r.en && cache[r.zh]) r.en = cache[r.zh]; if (!r.en && !CJK.test(r.zh)) r.en = r.zh; });
+    render();
+    setStatus("Translation mukammal.", "ok");
+  } catch (err) {
+    console.error(err);
+    render();
+    setStatus("Translation error: " + err.message + " (jo ho chuka wo save hai, dobara dabayein)", "warn");
+  } finally { btn.disabled = false; }
+});
+
+/* ---------- table ---------- */
+function render() {
+  const tb = $("tbl").querySelector("tbody");
+  tb.innerHTML = "";
+  rows.forEach((r, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td contenteditable data-k="code"></td><td contenteditable data-k="en"></td><td class="qty" contenteditable data-k="qty"></td><td class="del" title="Delete">&times;</td>';
+    tr.children[0].textContent = r.code;
+    tr.children[1].textContent = r.en || "";
+    tr.children[2].textContent = r.qty;
+    tr.children[1].title = r.zh || "";
+    tr.querySelectorAll("[contenteditable]").forEach(td => td.addEventListener("input", () => {
+      const k = td.dataset.k; const v = td.textContent.trim();
+      r[k] = k === "qty" ? (parseInt(v, 10) || 0) : v;
+    }));
+    tr.querySelector(".del").addEventListener("click", () => { rows.splice(i, 1); render(); });
+    tb.appendChild(tr);
+  });
+}
+
+$("addBtn").addEventListener("click", () => { rows.push({ code: "", zh: "", en: "", qty: 1 }); render(); });
+
+$("downloadBtn").addEventListener("click", () => {
+  const data = [["Part Code", "Description", "Quantity"], ...rows.map(r => [r.code, r.en, r.qty])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws["!cols"] = [{ wch: 22 }, { wch: 60 }, { wch: 10 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Fixtures");
+  XLSX.writeFile(wb, "fixture_list.xlsx");
+});
+
+$("copyBtn").addEventListener("click", async () => {
+  const txt = ["Part Code\tDescription\tQuantity", ...rows.map(r => [r.code, r.en, r.qty].join("\t"))].join("\n");
+  await navigator.clipboard.writeText(txt);
+  setStatus("Copy ho gaya, Excel me paste kar sakte hain.", "ok");
+});
+</script>
+</body>
+</html>
