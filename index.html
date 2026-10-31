@@ -92,9 +92,7 @@ footer{color:var(--muted);font-size:12px}
 .mcard:hover .ph{transform:rotate(-3deg) scale(1.04)}
 .mcard.on .ph{border-color:var(--accent)}
 .mcard .ph img{width:100%;height:100%;object-fit:cover;display:block}
-.mcard .ph span:not(.chg){font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:center;padding:0 6px}
-.mcard .chg{position:absolute;right:8px;bottom:6px;font-size:11px;color:var(--accent);background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:10px;padding:1px 8px;opacity:0;transition:opacity .15s ease}
-.mcard:hover .chg{opacity:1}
+.mcard .ph span{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:center;padding:0 6px}
 .mpick{display:flex;gap:8px;flex-wrap:wrap}
 .chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 14px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
 .chip:hover{border-color:var(--accent)}
@@ -275,13 +273,10 @@ $('notify').onclick=()=>{if(typeof Notification==='undefined')return;Notificatio
 applyData(SUBS);
 
 /* ---------- model cards (photo + live numbers) ---------- */
-// To ship a permanent photo for every viewer, add images/X6843.png and images/KO2.png (jpg/webp also work) next to index.html.
+// Photos are fixed: they load only from images/<model>.png (jpg/jpeg/webp also work) in the repo. Visitors cannot change them.
 var PHOTO_EXT=['png','jpg','jpeg','webp'];
-function photoOf(m){try{return localStorage.getItem('modelPhoto:'+m)}catch(e){return null}}
 function phHTML(m){
-  const own=photoOf(m);
-  if(own)return `<img src="${own}" alt="${esc(m)} photo">`;
-  return `<img src="images/${encodeURIComponent(m)}.png" data-m="${esc(m)}" data-i="0" alt="" onload="this.nextElementSibling.hidden=true" onerror="phNext(this)"><span>Add photo</span>`;
+  return `<img src="images/${encodeURIComponent(m)}.png" data-m="${esc(m)}" data-i="0" alt="" onload="this.nextElementSibling.hidden=true" onerror="phNext(this)"><span>Photo coming</span>`;
 }
 function phNext(img){
   const i=+img.dataset.i+1;
@@ -292,26 +287,16 @@ function modelCards(){
   const sel=$('md').value;
   $('models').innerHTML=MODELS.map((m,i)=>{
     const k=SUBS.filter(s=>s.model===m),d=k.filter(s=>s.status==='Completed').length,p=k.filter(s=>s.status==='In Progress').length,pc=k.length?Math.round(d/k.length*100):0;
-    return `<div class="mcard${sel===m?' on':''}" role="button" tabindex="0" data-m="${esc(m)}" aria-pressed="${sel===m}"><div><div class="tag">Model ${String(i+1).padStart(2,'0')}</div><h3>${esc(m)}</h3><div class="meta"><b>${k.length}</b> subtasks · <b>${d}</b> done · <b>${p}</b> in progress · <b>${pc}%</b></div><div class="bar"><i style="width:${pc}%"></i></div></div><div class="ph" data-m="${esc(m)}">${phHTML(m)}<span class="chg">Change photo</span></div></div>`}).join('');
+    return `<div class="mcard${sel===m?' on':''}" role="button" tabindex="0" data-m="${esc(m)}" aria-pressed="${sel===m}"><div><div class="tag">Model ${String(i+1).padStart(2,'0')}</div><h3>${esc(m)}</h3><div class="meta"><b>${k.length}</b> subtasks · <b>${d}</b> done · <b>${p}</b> in progress · <b>${pc}%</b></div><div class="bar"><i style="width:${pc}%"></i></div></div><div class="ph" data-m="${esc(m)}">${phHTML(m)}</div></div>`}).join('');
   $('mpick').innerHTML=['All models',...MODELS].map(x=>`<button class="chip${sel===x?' on':''}" type="button" data-m="${esc(x)}">${esc(x)}</button>`).join('');
 }
 function pickModel(m){$('md').value=m;lists();render();}
 $('models').addEventListener('click',e=>{
-  const ph=e.target.closest('.ph');
   const c=e.target.closest('.mcard');if(!c)return;
-  if(c.classList.contains('on')&&ph){upload(c.dataset.m);return}      // click the photo of the selected model to change it
   pickModel(c.dataset.m);
 });
 $('models').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('mcard')){e.preventDefault();pickModel(e.target.dataset.m)}});
 $('mpick').addEventListener('click',e=>{const b=e.target.closest('.chip');if(b)pickModel(b.dataset.m)});
-function upload(m){
-  const f=document.createElement('input');f.type='file';f.accept='image/*';
-  f.onchange=()=>{const file=f.files[0];if(!file)return;const r=new FileReader();
-    r.onload=()=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,400/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=im.width*sc;cv.height=im.height*sc;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);
-      try{localStorage.setItem('modelPhoto:'+m,cv.toDataURL('image/jpeg',.85))}catch(e){}modelCards()};im.src=r.result};
-    r.readAsDataURL(file)};
-  f.click();
-}
 /* ---------- live link to the Google Sheet (public CSV, no Claude needed) ---------- */
 const SHEET_ID='1ZF55Uc_NYWG-G5dRrZkpzIjfLmS66NqrseYqCvFb9mY';
 const SHEET_URL='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit';
