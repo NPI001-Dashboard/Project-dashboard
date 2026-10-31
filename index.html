@@ -9,12 +9,6 @@
   --ni:#d64545; --ni-bg:#fbe0dd; --ni-fg:#b3261e; --od-bg:#efdcf6; --od-fg:#7a2a9b; --done:#2e9e5b; --prog:#e8a33d; --done-bg:#dff3e6; --done-fg:#1d6b3f; --prog-bg:#fdecc8; --prog-fg:#8a5200; --due-bg:#dbe7fb; --due-fg:#1f4e9c;
   --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0e141c; --surface:#161d27; --fg:#e8edf4; --muted:#94a1b4; --line:#283140; --band:#0b2038; --bandfg:#fff; --accent:#6ea3ee; --track:#27303d;
-  --ni:#e8665d; --ni-bg:#44201d; --ni-fg:#f28b82; --od-bg:#3a2147; --od-fg:#d9a6ee; --done:#4cc07f; --prog:#f0b44f; --done-bg:#16382a; --done-fg:#58c585; --prog-bg:#3d2d0f; --prog-fg:#f0b44f; --due-bg:#1e3556; --due-fg:#8db4f0; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0e141c; --surface:#161d27; --fg:#e8edf4; --muted:#94a1b4; --line:#283140; --band:#0b2038; --bandfg:#fff; --accent:#6ea3ee; --track:#27303d;
-  --ni:#e8665d; --ni-bg:#44201d; --ni-fg:#f28b82; --od-bg:#3a2147; --od-fg:#d9a6ee; --done:#4cc07f; --prog:#f0b44f; --done-bg:#16382a; --done-fg:#58c585; --prog-bg:#3d2d0f; --prog-fg:#f0b44f; --due-bg:#1e3556; --due-fg:#8db4f0; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45;margin:0}
 .side{padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
@@ -81,9 +75,44 @@ td.cm{min-width:200px;max-width:380px;white-space:normal}
 .live.warn,.live.wait{background:var(--prog-bg);color:var(--prog-fg)}
 .live.err{background:var(--ni-bg);color:var(--ni-fg)}
 footer{color:var(--muted);font-size:12px}
+
+/* Model cards: pick a model by clicking its card; the photo and the live numbers follow the selection */
+.models{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.mcard{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;text-align:left;font:inherit;color:var(--fg);background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:18px 20px;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease;box-shadow:0 1px 2px rgba(22,50,79,.06)}
+.mcard:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(22,50,79,.13);border-color:#b9c7da}
+.mcard.on{border-color:var(--accent);background:linear-gradient(135deg,#eef4ff,#fff 70%);box-shadow:0 10px 26px rgba(46,111,208,.20)}
+.mcard .tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--done);font-weight:600}
+.mcard.on .tag{color:var(--accent)}
+.mcard h3{margin:2px 0 8px;font-size:30px;line-height:1.1;font-weight:700;letter-spacing:-.01em}
+.mcard .meta{color:var(--muted);font-size:13px}
+.mcard .meta b{color:var(--fg);font-family:var(--mono);font-weight:600}
+.mcard .bar{height:6px;border-radius:3px;background:var(--track);margin-top:10px;overflow:hidden;max-width:260px}
+.mcard .bar i{display:block;height:100%;background:var(--done);border-radius:3px;transition:width .6s ease}
+.mcard .ph{position:relative;flex:none;width:92px;height:150px;border-radius:14px;border:2px solid var(--line);background:linear-gradient(160deg,#e6edf8,#f7f9fc);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:transform .25s ease,border-color .2s ease}
+.mcard:hover .ph{transform:rotate(-3deg) scale(1.04)}
+.mcard.on .ph{border-color:var(--accent)}
+.mcard .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.mcard .ph span:not(.chg){font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:center;padding:0 6px}
+.mcard .chg{position:absolute;right:8px;bottom:6px;font-size:11px;color:var(--accent);background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:10px;padding:1px 8px;opacity:0;transition:opacity .15s ease}
+.mcard:hover .chg{opacity:1}
+.mpick{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 14px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tile{transition:transform .15s ease,box-shadow .15s ease}
+.tile:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(22,50,79,.10)}
+tbody tr{transition:background .12s ease}
+tbody tr:hover{background:#f3f7fd}
+.row{border-radius:4px;transition:background .12s ease}
+.row:hover{background:#f3f7fd}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.tiles .tile,.pie svg{animation:fadein .35s ease both}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 <div class="band side"><div class="wrap"><div><h1>Project Progress Report</h1><p>Status from the project Gantt charts. Use the selections to pick a model, task, status or owner.</p><div class="live wait" id="live">Connecting to the Google Sheet…</div><button class="reset" id="refresh" type="button" style="margin-top:8px">Refresh now</button> <button class="reset" id="notify" type="button" style="margin-top:8px" hidden>Enable alerts</button><div class="alert" id="alert" hidden></div></div></div></div>
 <main class="wrap side">
+  <section class="models" id="models" aria-label="Select model"></section>
+  <div class="mpick" id="mpick"></div>
   <section class="panel"><h2>Select tasks</h2>
     <div class="sel">
       <label>Model<select id="md"></select></label>
@@ -231,7 +260,7 @@ function render(){
   svg+='<circle cx="105" cy="105" r="46" fill="var(--surface)"/>';
   svg+=`<text x="105" y="104" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="24" font-weight="500" fill="var(--fg)">${pc}%</text><text x="105" y="124" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="11" fill="var(--muted)">completed</text>`;
   $('pie').innerHTML=`<svg viewBox="0 0 210 210" role="img" aria-label="${d} completed, ${p} in progress, ${ni} not initiated">${svg}</svg><div class="leg">${parts.map(x=>`<div><i style="background:${x[1]}"></i><b>${pct(x[0])}%</b><span>${x[2]} · ${x[0]} subtasks</span></div>`).join('')}</div>`;
-  bars('wsbars',WS,'g');bars('owbars',OW,'owner');
+  bars('wsbars',WS,'g');bars('owbars',OW,'owner');modelCards();
   $('cnt').textContent=`Showing ${n} subtasks that match the selections.`;
   const pill=s=>s.status==='Completed'?'<span class="pill done">Completed</span>':s.status==='Not Initiated'?'<span class="pill ni">Not Initiated</span>':s.flag==='Due today'?'<span class="pill due">Due today</span>':'<span class="pill prog">In Progress</span>';
   // days used so far by the subtask (or in total once it is finished)
@@ -245,6 +274,44 @@ $('reset').onclick=()=>{$('md').value=MODELS[0]||'All models';lists();$('ws').va
 $('notify').onclick=()=>{if(typeof Notification==='undefined')return;Notification.requestPermission().then(()=>{notifyState();render()})};
 applyData(SUBS);
 
+/* ---------- model cards (photo + live numbers) ---------- */
+// To ship a permanent photo for every viewer, add images/X6843.png and images/KO2.png (jpg/webp also work) next to index.html.
+var PHOTO_EXT=['png','jpg','jpeg','webp'];
+function photoOf(m){try{return localStorage.getItem('modelPhoto:'+m)}catch(e){return null}}
+function phHTML(m){
+  const own=photoOf(m);
+  if(own)return `<img src="${own}" alt="${esc(m)} photo">`;
+  return `<img src="images/${encodeURIComponent(m)}.png" data-m="${esc(m)}" data-i="0" alt="" onload="this.nextElementSibling.hidden=true" onerror="phNext(this)"><span>Add photo</span>`;
+}
+function phNext(img){
+  const i=+img.dataset.i+1;
+  if(i<PHOTO_EXT.length){img.dataset.i=i;img.src='images/'+encodeURIComponent(img.dataset.m)+'.'+PHOTO_EXT[i]}
+  else img.remove()
+}
+function modelCards(){
+  const sel=$('md').value;
+  $('models').innerHTML=MODELS.map((m,i)=>{
+    const k=SUBS.filter(s=>s.model===m),d=k.filter(s=>s.status==='Completed').length,p=k.filter(s=>s.status==='In Progress').length,pc=k.length?Math.round(d/k.length*100):0;
+    return `<div class="mcard${sel===m?' on':''}" role="button" tabindex="0" data-m="${esc(m)}" aria-pressed="${sel===m}"><div><div class="tag">Model ${String(i+1).padStart(2,'0')}</div><h3>${esc(m)}</h3><div class="meta"><b>${k.length}</b> subtasks · <b>${d}</b> done · <b>${p}</b> in progress · <b>${pc}%</b></div><div class="bar"><i style="width:${pc}%"></i></div></div><div class="ph" data-m="${esc(m)}">${phHTML(m)}<span class="chg">Change photo</span></div></div>`}).join('');
+  $('mpick').innerHTML=['All models',...MODELS].map(x=>`<button class="chip${sel===x?' on':''}" type="button" data-m="${esc(x)}">${esc(x)}</button>`).join('');
+}
+function pickModel(m){$('md').value=m;lists();render();}
+$('models').addEventListener('click',e=>{
+  const ph=e.target.closest('.ph');
+  const c=e.target.closest('.mcard');if(!c)return;
+  if(c.classList.contains('on')&&ph){upload(c.dataset.m);return}      // click the photo of the selected model to change it
+  pickModel(c.dataset.m);
+});
+$('models').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('mcard')){e.preventDefault();pickModel(e.target.dataset.m)}});
+$('mpick').addEventListener('click',e=>{const b=e.target.closest('.chip');if(b)pickModel(b.dataset.m)});
+function upload(m){
+  const f=document.createElement('input');f.type='file';f.accept='image/*';
+  f.onchange=()=>{const file=f.files[0];if(!file)return;const r=new FileReader();
+    r.onload=()=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,400/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=im.width*sc;cv.height=im.height*sc;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);
+      try{localStorage.setItem('modelPhoto:'+m,cv.toDataURL('image/jpeg',.85))}catch(e){}modelCards()};im.src=r.result};
+    r.readAsDataURL(file)};
+  f.click();
+}
 /* ---------- live link to the Google Sheet (public CSV, no Claude needed) ---------- */
 const SHEET_ID='1ZF55Uc_NYWG-G5dRrZkpzIjfLmS66NqrseYqCvFb9mY';
 const SHEET_URL='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit';
